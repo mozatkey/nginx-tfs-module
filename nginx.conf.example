@@ -1,0 +1,42 @@
+#user root;
+worker_processes 8;
+
+events {
+    worker_connections  1024;
+}
+
+http { 
+    include       mime.types;
+    default_type  application/octet-stream;
+    
+    sendfile        on;
+    keepalive_timeout  65;
+
+    server {
+        listen       80;
+        server_name  localhost;
+    
+        # 预知的最大上传文件大小
+        client_max_body_size 5m;    
+        client_body_timeout 120;
+        # 每次读写tfs文件buffer大小 
+        tfs_rb_buffer_size  2m;     
+        
+        location = /put {
+            tfs_put;
+            tfs_nsip '10.20.134.195:10000';        
+        }
+        
+        # 使用get方式传tfsname,如 curl localhost/get?tfsname=T1XXXXXXXXXXX
+        location = /get {   
+            tfs_get;
+            tfs_nsip '10.20.134.195:10000';        
+        }   
+
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   html;   
+            
+        }
+    }
+}
