@@ -1,0 +1,35 @@
+2011-03-10 17:00
+chuantong.huang@gmail.com
+
+tfs 的python接口，编译出pytfs.so
+
+把 setup.py 拷贝到tfs源码目录下,与Makefile同级
+把 pytfs.cpp 拷贝到src/client/目录下
+
+运行 setup.py install 即可安装pytfs
+
+0.1版本，实现了以下接口：
+import pytfs
+
+tfs = pytfs.TfsClient() #Create a new TfsClient object.
+tfs.tfs_init('127.0.0.1:10000') # 连接先nameserver
+
+0)
+tfs.tfs_put('文件内容') # 新上传一文件到tfs, 返回tfsname
+tfs.tfs_get('T1xxxxxxxxxx') # 下载一个文件，返回文件内容的str
+
+1)
+tfs.tfs_open(None, pytfs.WRITE_MODE, None) # new open a file
+tfs.tfs_write('文件内容1')
+tfs.tfs_write('文件内容2')
+tfs.tfs_close()
+tfs.tfs_getname() # 返回刚刚上传完文件的tfsname
+
+2)
+tfs.tfs_open('T1xxxxxxxxxxx', pytfs.READ_MODE) # new open a file
+tfs.tfs_read() #读内容,返回全部文件容
+tfs.tfs_close()
+
+
+
+

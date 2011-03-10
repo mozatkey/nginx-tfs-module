@@ -271,7 +271,7 @@ ngx_http_tfs_put_handler(ngx_http_request_t *r)
 	while (wrote < rb_size) {
 		wrote_size = left > cglcf->tfs_rb_buffer_size ? cglcf->tfs_rb_buffer_size : left;
 		// 将buffer中的数据写入tfs
-		ret = tfsclient.tfs_write((char*)rb->buf->pos, wrote_size);
+		ret = tfsclient.tfs_write((char*)(rb->buf->pos + wrote), wrote_size);
 		if (ret < 0 || ret >= left) {
 			// 读写失败或完成
 			break;
