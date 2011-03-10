@@ -34,23 +34,23 @@ static PyTypeObject *p_TfsClient_Type = NULL;
 
 static char module_doc [] =
 "This module implements an interface to the tfs client library.\n"
-"\n"
-"Types:\n"
-"\n"
-"TfsClient() -> New object.  Create a new TfsClient object.\n"
-"Functions:\n"
-"\n"
 "version() -> tuple.  Return version information.\n"
+"注意：非线程安全\n not safe in multi threading\n"
+">>> import pytfs\n"
+">>> tfs = pytfs.TfsClient()\n"
+">>> tfs.init('127.0.0.1:10000')\n"
+">>> tfs.tfs_open(None, pytfs.WRITE_MODE, None)\n"
+">>> tfs.tfs_write('abcd')\n"
+">>> tfs.tfs_close() #end write\n"
+">>> tfs.tfs_getname() -> T1XXXXXXX\n"
+">>> tfs.tfs_open('T1xxxxxx', pytfs.READ_MODE, None)\n"
+">>> tfs.tfs_read() #all file steam\n"
+">>> tfs.tfs_close()#end read\n"
+"#or you can use the easy function:\n"
+">>> tfs.tfs_put(stream) # put a new file to tfs.\n"
+">>> tfs.tfs_get('T1xxxxxxx') # get a file from tfs.\n"
 ;
-static char tfsclient_doc [] =
-"import pytfs\n"
-"tfs = pytfs.TfsClient()\n tfs.initialize('127.0.0.1:10000')\n"
-"tfs.newfile(open('/tmp/tmp.txt')) -> T1XXXXXXX\n"
-"tfs.open('T1XXXXXX')\ntfs.read(size)\ntfs.close()\n\n"
-"or you can use the easy function:\n"
-"\ttfs.put(stream) # put a new file to tfs.\n"
-"\ttfs.get('T1xxxxxxx') # get a file from tfs.\n"
-;
+static char *tfsclient_doc = module_doc;
 
 const char * _check_str_obj(PyObject *obj)
 {
@@ -180,7 +180,7 @@ error:
 }
 
 static char tfsclient_tfs_open_doc [] =
-		"tfs_open(file_name, suffix, pytfs.WRITE_MODE|pytfs.READ_MODE)"
+		"tfs_open(file_name, pytfs.WRITE_MODE|pytfs.READ_MODE, suffix)"
 		"file_name TFS文件名, 新建时传空None \n"
 		"suffix    文件后缀，如果没有空None \n"
 		"mode      打开文件的模式\n"
@@ -196,7 +196,7 @@ do_tfsclient_tfs_open(TfsClientObject *self, PyObject *args)
     PyObject *osuffix = NULL;
     int mode ;
 
-    if (!PyArg_ParseTuple(args, "Oi|O:tfs_open", &ofname, &mode, &osuffix)){
+    if (!PyArg_ParseTuple(args, "OiO:tfs_open", &ofname, &mode, &osuffix)){
         PyErr_SetString(PyExc_TypeError, "invalid arguments to tfs_open...");
         goto error;
     }
@@ -282,8 +282,7 @@ do_tfsclient_tfs_close(TfsClientObject *self, PyObject *args)
 {
     int ret = self->tfs_handle->tfs_close();
     if (TFS_SUCCESS != ret) {
-        PyErr_SetString(ErrorObject, "tfs_close: upload file error." );
-        cout << ret << endl;
+        PyErr_SetString(ErrorObject, self->tfs_handle->get_error_message());
         Py_INCREF(Py_False);
         return Py_False;
     }
@@ -308,7 +307,7 @@ do_tfsclient_tfs_getname(TfsClientObject *self, PyObject *args)
     return pString;
 }
 
-static char tfsclient_tfs_read_doc [] =
+static char tfsclient_tfs_read_doc[] =
     "tfs_read()\n Return (str)";
 static PyObject *
 do_tfsclient_tfs_read(TfsClientObject *self, PyObject *args)
