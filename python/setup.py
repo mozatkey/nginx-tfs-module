@@ -21,7 +21,7 @@ except KeyError, ke:
  raise ke
 
 include_dirs = [
-    '/root/workspace/tb-tfs/src',
+    './src',
     tblib + '/include/tbsys',
     tblib + '/include/tbnet',
 ]
