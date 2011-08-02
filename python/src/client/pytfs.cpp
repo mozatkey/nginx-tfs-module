@@ -6,7 +6,7 @@
  * published by the Free Software Foundation.
  *
  *
- * Version: $Id: pytfs.cpp 95 2011-03-03 09:06:24Z chuantong.huang@gmail.com $
+ * Version: $Id: pytfs.cpp 95 2011-08-02 16:42:24Z chuantong.huang@gmail.com $
  *
  * Authors:
  *   chuantong <chuantong.huang@gmail.com>
@@ -44,7 +44,7 @@ static char module_doc [] =
 ">>> tfs.tfs_close() #end write\n"
 ">>> tfs.tfs_getname() -> T1XXXXXXX\n"
 ">>> tfs.tfs_open('T1xxxxxx', pytfs.READ_MODE, None)\n"
-">>> tfs.tfs_read() #all file steam\n"
+">>> tfs.tfs_read() #return all file stream\n"
 ">>> tfs.tfs_close()#end read\n"
 "#or you can use the easy function:\n"
 ">>> tfs.tfs_put(stream) # put a new file to tfs.\n"
@@ -93,7 +93,7 @@ do_pytfs_setloglevel(PyObject *self, PyObject *args)
 }
 
 // 构造函数
-static char tfsclient_new_doc [] = "Create new instances of Class TfsClient. you must call initialize to initialize it.";
+static char tfsclient_new_doc [] = "Create new instances of Class TfsClient. you must call init() to initialize it.";
 TfsClientObject*
 do_tfsclient_new(PyObject *dummy)
 {
@@ -123,11 +123,12 @@ error:
 
 // 析构函数，后先调用clear
 static void
-_tfsclient_dealloc(PyObject *self)
+_tfsclient_dealloc(TfsClientObject *self)
 {
     PyObject_GC_UnTrack(self);
     Py_TRASHCAN_SAFE_BEGIN(self)
 
+    Py_XDECREF(self->dict); 
     PyObject_GC_Del(self);
 
     Py_TRASHCAN_SAFE_END(self)
@@ -136,8 +137,9 @@ _tfsclient_dealloc(PyObject *self)
 static int
 _tfsclient_clear(TfsClientObject *self)
 {
-	delete self->tfs_handle;
-	self->tfs_handle = NULL;
+    delete self->tfs_handle;
+    self->tfs_handle = NULL;
+    Py_XDECREF(self->dict); 
     return 0;
 }
 
@@ -147,8 +149,13 @@ _tfsclient_traverse(TfsClientObject *self, visitproc visit, void *arg)
     return 0;
 }
 
+void _tfsclient_print_error(TfsClientObject *self, const char* msg)
+{
+    cerr << msg << " |from tfsclient: "<< self->tfs_handle->get_error_message() << endl;
+}
+
 static char tfsclient_initialize_doc [] =
-		"tfsclient.initialize('127.0.0.1:10000', cacheTimeBySeconds = 5, cacheItems = 100) -> True or False";
+		"tfsclient.init('127.0.0.1:10000', cacheTimeBySeconds = 5, cacheItems = 100) -> True or False";
 static PyObject *
 do_tfsclient_initialize(TfsClientObject *self, PyObject *args)
 {
@@ -165,7 +172,7 @@ do_tfsclient_initialize(TfsClientObject *self, PyObject *args)
 
 	session = TfsSessionPool::get_instance().get(ns_ip_port, cache_time, cache_items);
 	if (session == NULL) {
-		cerr << "connect to name_server failed."<< endl;
+	    _tfsclient_print_error(self, "connect to name_server failed.");
 		Py_INCREF(Py_False);
 		return Py_False;
 	}
@@ -182,7 +189,7 @@ error:
 static char tfsclient_tfs_open_doc [] =
 		"tfs_open(file_name, pytfs.WRITE_MODE|pytfs.READ_MODE, suffix)"
 		"file_name TFS文件名, 新建时传空None \n"
-		"suffix    文件后缀，如果没有空None \n"
+		"suffix    文件后缀，如果没有传空None \n"
 		"mode      打开文件的模式\n"
 		"\tREAD_MODE 读\n"
 		"\tWRITE_MODE 写\n"
@@ -209,7 +216,7 @@ do_tfsclient_tfs_open(TfsClientObject *self, PyObject *args)
         Py_INCREF(Py_True);
         return Py_True;
     }
-    PyErr_SetString(ErrorObject, "error to tfs_open.");
+    _tfsclient_print_error(self, "error to tfs_open.");
 error:
     Py_INCREF(Py_False);
     return Py_False;
@@ -228,7 +235,7 @@ static int _tfs_write(TfsClientObject *self, PyObject* stream)
     int wrote_size ;
 
     if (0 != PyString_AsStringAndSize(stream, &buff, &len)){
-        cerr << "string is empty to tfs_write." << endl;
+        _tfsclient_print_error(self, "string is empty to tfs_write.");
         return -1;
     }
 
@@ -242,7 +249,7 @@ static int _tfs_write(TfsClientObject *self, PyObject* stream)
             break;
         }
         else if (ret < 0) {
-            cerr << "tfs_write file error." << endl;
+            _tfsclient_print_error(self, "tfs_write file error.");
             return -2;
         } else {
             // 若ret>0，则ret为实际写入的数据量
@@ -282,7 +289,7 @@ do_tfsclient_tfs_close(TfsClientObject *self, PyObject *args)
 {
     int ret = self->tfs_handle->tfs_close();
     if (TFS_SUCCESS != ret) {
-        PyErr_SetString(ErrorObject, self->tfs_handle->get_error_message());
+        _tfsclient_print_error(self, "close fail.");
         Py_INCREF(Py_False);
         return Py_False;
     }
@@ -297,8 +304,7 @@ do_tfsclient_tfs_getname(TfsClientObject *self, PyObject *args)
 {
     const char *str = self->tfs_handle->get_file_name();
     if (NULL == str) {
-        PyErr_SetString(ErrorObject, "tfs_getname: get file name error." );
-
+        _tfsclient_print_error(self, "tfs_getname: get file name error." );
         Py_INCREF(Py_None);
         return Py_None;
     }
@@ -323,7 +329,7 @@ do_tfsclient_tfs_read(TfsClientObject *self, PyObject *args)
     ret = self->tfs_handle->tfs_stat(&finfo);
     if (ret != TFS_SUCCESS || finfo.size_ <= 0)
     {
-        PyErr_SetString(ErrorObject, "get remote file info error\n");
+        _tfsclient_print_error(self, "get remote file info error\n");
         goto error;
     }
 
@@ -343,7 +349,7 @@ do_tfsclient_tfs_read(TfsClientObject *self, PyObject *args)
     }
 
     if (ret < 0 || crc != finfo.crc_){
-        printf("read remote file error!\n");
+        _tfsclient_print_error(self, "read remote file error!\n");
         delete []buffer;
         goto error ;
     }
@@ -351,7 +357,7 @@ do_tfsclient_tfs_read(TfsClientObject *self, PyObject *args)
     ret = self->tfs_handle->tfs_close();
     if (ret < 0)
     {
-        printf("close remote file error!");
+        _tfsclient_print_error(self, "close remote file error!");
         delete []buffer;
         goto error ;
     }
@@ -375,28 +381,28 @@ do_tfsclient_tfs_put(TfsClientObject *self, PyObject *args)
     PyObject* pString = NULL;
 
     if (!PyArg_ParseTuple(args, "O:tfs_put", &obj) && !PyString_Check(obj)){
-        cerr << "invalid arguments to tfs_put..." << endl;
+        _tfsclient_print_error(self, "invalid arguments to tfs_put...");
         goto error;
     }
 
     if(TFS_SUCCESS != self->tfs_handle->tfs_open(buff, buff, WRITE_MODE)){
-        cerr << "error to open tfs file to tfs_put..." << endl;
+        _tfsclient_print_error(self, "error to open tfs file to tfs_put...");
         goto error;
     }
 
     if (0 != _tfs_write(self, obj)){
-        cerr << "write file error to tfs_put..." << endl;
+        _tfsclient_print_error(self, "write file error to tfs_put...");
         goto error;
     }
 
     if (TFS_SUCCESS != self->tfs_handle->tfs_close()) {
-        cerr << "close file error to tfs_put..." << endl;
+        _tfsclient_print_error(self, "close file error to tfs_put...");
         goto error;
     }
 
     buff = self->tfs_handle->get_file_name();
     if (NULL == buff) {
-        cerr << "get file name error to tfs_put..." << endl;
+        _tfsclient_print_error(self, "get file name error to tfs_put...");
         goto error;
     }
 
@@ -416,18 +422,18 @@ do_tfsclient_tfs_get(TfsClientObject *self, PyObject *args)
     PyObject *obj = NULL;
     Py_ssize_t len;
 
-    if (!PyArg_ParseTuple(args, "O:tfs_get", &obj) && !PyString_Check(obj)){
-        cerr << "invalid arguments to tfs_get..." << endl;
+    if (!PyArg_ParseTuple(args, "O:tfs_get", &obj) && !PyString_Check(obj)) {
+        _tfsclient_print_error(self, "invalid arguments to tfs_get...");
         goto error;
     }
 
-    if (0 != PyString_AsStringAndSize(obj, &tfsname, &len) && TFS_FILE_LEN != len){
-        cerr << "error tfsname to tfs_get." << endl;
+    if (0 != PyString_AsStringAndSize(obj, &tfsname, &len) && TFS_FILE_LEN != len) {
+        _tfsclient_print_error(self,  "error tfsname to tfs_get.");
         goto error;
     }
 
-    if(TFS_SUCCESS != self->tfs_handle->tfs_open(tfsname, NULL, READ_MODE)){
-        cerr << "error to open tfs file to tfs_get..." << endl;
+    if(TFS_SUCCESS != self->tfs_handle->tfs_open(tfsname, NULL, READ_MODE)) {
+        _tfsclient_print_error(self,  "error to open tfs file to tfs_get...");
         goto error;
     }
 
@@ -495,7 +501,7 @@ static PyTypeObject Pytfs_Type = {
     PyObject_HEAD_INIT(NULL)
     0,                          /* ob_size */
     "pytfs.TfsClient",	            /* tp_name */
-    sizeof(PyTypeObject),    	/* tp_basicsize */
+    sizeof(TfsClientObject),    	/* tp_basicsize */
     0,                          /* tp_itemsize */
     /* Methods */
     (destructor)_tfsclient_dealloc,   /* tp_dealloc */
