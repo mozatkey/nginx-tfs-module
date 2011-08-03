@@ -72,7 +72,7 @@ static PyObject *
 do_pytfs_version(PyObject *self, PyObject *args)
 {
 	PyObject* pTuple = PyTuple_New(2);
-	PyTuple_SetItem(pTuple, 0, Py_BuildValue("s", "0.1"));
+	PyTuple_SetItem(pTuple, 0, Py_BuildValue("s", "0.2"));
 	PyTuple_SetItem(pTuple, 1, Py_BuildValue("s", "author: chuantong.huang@gmail.com"));
 	Py_INCREF(pTuple);
 	return pTuple;
@@ -127,7 +127,7 @@ _tfsclient_dealloc(TfsClientObject *self)
 {
     PyObject_GC_UnTrack(self);
     Py_TRASHCAN_SAFE_BEGIN(self)
-
+    delete self->tfs_handle;
     Py_XDECREF(self->dict); 
     PyObject_GC_Del(self);
 
@@ -137,9 +137,9 @@ _tfsclient_dealloc(TfsClientObject *self)
 static int
 _tfsclient_clear(TfsClientObject *self)
 {
-    delete self->tfs_handle;
-    self->tfs_handle = NULL;
-    Py_XDECREF(self->dict); 
+// clear函数不会调到
+//    delete self->tfs_handle;
+//    self->tfs_handle = NULL;
     return 0;
 }
 
