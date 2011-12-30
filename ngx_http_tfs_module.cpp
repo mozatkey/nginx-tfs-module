@@ -16,7 +16,7 @@ using namespace std;
 using namespace tfs::client;
 using namespace tfs::common;
 
-#define DEFAULT_TFS_READ_WRITE_SIZE 2 * 1024 * 1024
+#define DEFAULT_TFS_READ_WRITE_SIZE (2 * 1024 * 1024)
 
 static void* ngx_http_tfs_create_loc_conf(ngx_conf_t *cf);
 static char* ngx_http_tfs_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child);
