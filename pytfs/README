@@ -1,0 +1,11 @@
+请先编译tfs-stable-2.0，再编译本模块, 本模块依赖其头文件与静态库
+
+使用counfigure --enable-shared --prefix=/root/tfs_bin 命令编译tfs
+
+(本模块只在tfs-stable-2.0版本编译过，其它版本未尝试)
+
+找不到头文件的错：
+使用以下命令编译此pytfs模块 python setup.py build 
+python setup.py build_ext -I/root/tfs_bin/include -L/root/tfs_bin/lib
+python install
+
